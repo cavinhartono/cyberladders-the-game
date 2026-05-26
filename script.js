@@ -179,6 +179,27 @@ const CHARS = [
 const diceSheet = makeDiceSheet();
 const charSheets = CHARS.map((ch) => makeCharSheet(ch.pal));
 
+const playerSprites = [];
+const SPRITE_W = 16;
+const SPRITE_H = 32;
+const DIR = {
+  LEFT: 0,
+  DOWN: 1,
+  UP: 2,
+  RIGHT: 3,
+};
+
+function loadSprite(path) {
+  const img = new Image();
+  img.src = path;
+  return img;
+}
+
+playerSprites.push(loadSprite("public/assets/rizky.png"));
+playerSprites.push(loadSprite("public/assets/edward.png"));
+playerSprites.push(loadSprite("public/assets/natasya.png"));
+playerSprites.push(loadSprite("public/assets/amanda.png"));
+
 const SNAKES = {
   98: 78,
   95: 75,
@@ -543,17 +564,20 @@ function drawPlayers() {
     ctx.fill();
 
     ctx.imageSmoothingEnabled = false;
-    const sx = frame * 64;
+    const sprite = playerSprites[p.charIdx];
+    const sx = p.direction * SPRITE_W;
+    const sy = p.animFrame * SPRITE_H;
+
     ctx.drawImage(
-      sheet,
+      sprite,
       sx,
-      0,
-      24,
-      24,
-      pos.x + offset[0] - 12,
-      pos.y + offset[1] - 16,
-      24,
-      24,
+      sy,
+      SPRITE_W,
+      SPRITE_H,
+      p.drawX + offset[0] - 16,
+      p.drawY + offset[1] - 32,
+      32,
+      64,
     );
 
     ctx.fillStyle = CHARS[p.charIdx].color;
@@ -742,26 +766,90 @@ function rollDice() {
   }, 80);
 }
 
+function updateDirection(player, targetTile) {
+  const oldPos = tileToXY(player.pos);
+  const newPos = tileToXY(targetTile);
+
+  const dx = newPos.x - oldPos.x;
+  const dy = newPos.y - oldPos.y;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    player.direction = dx > 0 ? DIR.RIGHT : DIR.LEFT;
+  } else {
+    player.direction = dy > 0 ? DIR.DOWN : DIR.UP;
+  }
+}
+
 function movePlayer(pidx, steps) {
   const p = players[pidx];
   animating = true;
   let moved = 0;
-  const interval = setInterval(() => {
+
+  function moveOneTile() {
     if (moved >= steps) {
-      clearInterval(interval);
       animating = false;
+      p.animFrame = 0;
       landOnTile(pidx);
       return;
     }
-    p.pos = Math.min(100, p.pos + 1);
-    moved++;
-    updateTurnLabel();
-    if (p.pos >= 100) {
-      clearInterval(interval);
-      animating = false;
-      winGame(pidx);
+
+    const nextTile = Math.min(100, p.pos + 1);
+
+    updateDirection(p, nextTile);
+
+    const target = tileToXY(nextTile);
+
+    animateWalk(p, target.x, target.y, () => {
+      p.pos = nextTile;
+
+      moved++;
+
+      updateTurnLabel();
+
+      if (p.pos >= 100) {
+        winGame(pidx);
+        return;
+      }
+
+      moveOneTile();
+    });
+  }
+
+  moveOneTile();
+}
+
+function animateWalk(player, targetX, targetY, onFinish) {
+  const duration = 250;
+
+  const startX = player.drawX;
+  const startY = player.drawY;
+
+  const startTime = performance.now();
+
+  function step(now) {
+    let t = (now - startTime) / duration;
+
+    if (t > 1) {
+      t = 1;
     }
-  }, 200);
+
+    player.drawX = startX + (targetX - startX) * t;
+
+    player.drawY = startY + (targetY - startY) * t;
+
+    player.animFrame = Math.floor((now / 120) % 3);
+
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      player.drawX = targetX;
+      player.drawY = targetY;
+
+      onFinish();
+    }
+  }
+
+  requestAnimationFrame(step);
 }
 
 function landOnTile(pidx) {
@@ -938,6 +1026,8 @@ function startGame() {
     {
       pos: 1,
       charIdx: selectedChar,
+      direction: DIR.DOWN,
+      animationFrame: 0,
       snakeShield: false,
       canReroll: false,
       skipTurn: false,
@@ -948,6 +1038,8 @@ function startGame() {
     {
       pos: 1,
       charIdx: cpuChar,
+      direction: 1,
+      animationFrame: 0,
       snakeShield: false,
       canReroll: false,
       skipTurn: false,
@@ -956,6 +1048,12 @@ function startGame() {
       predictedRoll: null,
     },
   ];
+  players.forEach((p) => {
+    const startPos = tileToXY(1);
+
+    p.drawX = startPos.x;
+    p.drawY = startPos.y;
+  });
   currentPlayer = 0;
   turnCount = 1;
   updateTurnLabel();
