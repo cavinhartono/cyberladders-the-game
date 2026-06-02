@@ -2,6 +2,9 @@ const C = document.getElementById("mainCanvas");
 const ctx = C.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
+let hoverTile = null;
+let mouseX = 0;
+let mouseY = 0;
 const BOARD_X = 16,
   BOARD_Y = 16,
   CELL = 58,
@@ -178,7 +181,7 @@ const CHARS = [
 
 const diceSheet = makeDiceSheet();
 const charSheets = CHARS.map((ch) => makeCharSheet(ch.pal));
-
+let finalChallengeActive = false;
 const playerSprites = [];
 const SPRITE_W = 16;
 const SPRITE_H = 32;
@@ -188,42 +191,127 @@ const DIR = {
   UP: 2,
   RIGHT: 3,
 };
-
+const ICONS = {};
 function loadSprite(path) {
   const img = new Image();
   img.src = path;
   return img;
 }
 
-playerSprites.push(loadSprite("public/assets/rizky.png"));
-playerSprites.push(loadSprite("public/assets/edward.png"));
-playerSprites.push(loadSprite("public/assets/natasya.png"));
-playerSprites.push(loadSprite("public/assets/amanda.png"));
+playerSprites.push(loadSprite("public/assets/characters/rizky.png"));
+playerSprites.push(loadSprite("public/assets/characters/edward.png"));
+playerSprites.push(loadSprite("public/assets/characters/natasya.png"));
+playerSprites.push(loadSprite("public/assets/characters/amanda.png"));
 
 const SNAKES = {
-  98: 78,
-  95: 75,
-  87: 24,
-  64: 60,
-  54: 19,
-  36: 6,
-  32: 10,
+  99: {
+    to: 77,
+    icon: "public/assets/board/system_crash.png",
+    title: "System Crash",
+  },
+  94: {
+    to: 75,
+    icon: "public/assets/board/missing_semicolon.png",
+    title: "Missing Semicolon",
+  },
+  92: {
+    to: 72,
+    icon: "public/assets/board/typo_error.png",
+    title: "Typo Error",
+  },
+  88: {
+    to: 68,
+    icon: "public/assets/board/api_timeout.png",
+    title: "API Timeout",
+  },
+  64: {
+    to: 29,
+    icon: "public/assets/board/production_bug.png",
+    title: "Production Bug",
+  },
+  62: {
+    to: 39,
+    icon: "public/assets/board/merge_conflict.png",
+    title: "Merge Conflict",
+  },
+  53: {
+    to: 23,
+    icon: "public/assets/board/fatal_exception.png",
+    title: "Fatal Exception",
+  },
+  17: {
+    to: 3,
+    icon: "public/assets/board/null_pointer.png",
+    title: "Null Pointer",
+  },
 };
+Object.values(SNAKES).forEach(
+  (item) => (ICONS[item.icon] = loadSprite(item.icon)),
+);
 const LADDERS = {
-  4: 14,
-  9: 31,
-  20: 38,
-  28: 84,
-  40: 59,
-  51: 67,
-  63: 81,
-  71: 91,
+  4: {
+    to: 14,
+    icon: "public/assets/board/refactor_code.png",
+    title: "Refactor Code",
+  },
+  9: { to: 30, icon: "public/assets/board/reuseble.png", title: "Reuseble" },
+  20: {
+    to: 38,
+    icon: "public/assets/board/api_integration.png",
+    title: "API Integration",
+  },
+  28: {
+    to: 43,
+    icon: "public/assets/board/hp_optimization.png",
+    title: "HP Optimization",
+  },
+  40: {
+    to: 59,
+    icon: "public/assets/board/optimized_query.png",
+    title: "Optimized Query",
+  },
+  51: {
+    to: 67,
+    icon: "public/assets/board/code_formatting.png",
+    title: "Code Formatting",
+  },
+  63: { to: 81, icon: "public/assets/board/bug_fix.png", title: "Bug Fix" },
+  71: {
+    to: 91,
+    icon: "public/assets/board/unit_testing.png",
+    title: "Unit Testing",
+  },
 };
-const BUG_TILES = new Set(Object.keys(SNAKES).map(Number));
-const UPGRADE_TILES = new Set(Object.keys(LADDERS).map(Number));
-const CHALLENGE_TILES = new Set([7, 15, 22, 33, 45, 57, 68, 79, 88]);
-const EVENT_TILES = new Set([11, 23, 35, 46, 58, 70, 82, 93]);
-const BOOST_TILES = new Set([13, 26, 42, 55, 66, 77, 89]);
+Object.values(LADDERS).forEach(
+  (item) => (ICONS[item.icon] = loadSprite(item.icon)),
+);
+const CHALLENGE_TILES = new Set([
+  5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 65, 75, 85, 90, 95,
+]);
+const EVENT_TILES = new Set([11, 23, 35, 46, 58, 70, 73, 80, 82, 93, 97]);
+const BOOST_TILES = new Set([13, 26, 42, 55, 66, 77]);
+const FINAL_CHALLENGES = [
+  {
+    q: "Apa fungsi Git dalam pengembangan software?",
+    opts: ["Version Control", "Database", "Compiler", "Framework"],
+    ans: 0,
+  },
+  {
+    q: "HTTP Status 404 berarti?",
+    opts: ["Success", "Unauthorized", "Not Found", "Server Error"],
+    ans: 2,
+  },
+  {
+    q: "Framework JavaScript untuk SPA?",
+    opts: ["React", "MySQL", "Linux", "Docker"],
+    ans: 0,
+  },
+  {
+    q: "Perintah Git untuk upload commit?",
+    opts: ["git clone", "git push", "git init", "git fetch"],
+    ans: 1,
+  },
+];
 
 function tileToXY(tile) {
   // tile 1 = bottom-left, 100 = top-left zig-zag
@@ -337,71 +425,84 @@ const QUIZ_POOL = [
 
 const EVENT_POOL = [
   {
-    t: "☕ Kopi habis! Konsentrasimu menurun.",
-    effect: (p) => {
-      moveBack(p, 3);
+    t: "Kopi habis! Konsentrasimu menurun.",
+    effect: (p, done) => {
+      moveBack(p, 3, done);
       showMsg("Event: Kopi habis! Mundur 3 kotak.");
     },
   },
   {
-    t: "💡 Ide brilian datang! Sprint coding!",
-    effect: (p) => {
-      moveForward(p, 3);
+    t: "Ide brilian datang! Sprint coding!",
+    effect: (p, done) => {
+      moveForward(p, 3, done);
       showMsg("Event: Ide brilian! Maju 3 kotak!");
     },
   },
   {
-    t: "🐛 Bug ditemukan oleh reviewer!",
-    effect: (p) => {
-      moveBack(p, 2);
+    t: "Bug ditemukan oleh reviewer!",
+    effect: (p, done) => {
+      moveBack(p, 2, done);
       showMsg("Event: Bug ketemu! Mundur 2 kotak.");
     },
   },
   {
-    t: "🤝 Mentoring dari senior dev!",
-    effect: (p) => {
-      moveForward(p, 2);
+    t: "Mentoring dari senior dev!",
+    effect: (p, done) => {
+      moveForward(p, 2, done);
       showMsg("Event: Mentoring! Maju 2 kotak!");
     },
   },
   {
-    t: "💻 Laptop freeze! Skip satu giliran.",
-    effect: (p) => {
+    t: "Laptop freeze! Skip satu giliran.",
+    effect: (p, done) => {
       p.skipTurn = true;
       showMsg("Event: Laptop freeze! Skip 1 giliran.");
+      setTimeout(() => done(), 1000);
     },
   },
   {
-    t: "🚀 Deploy berhasil! Bonus giliran!",
-    effect: (p) => {
+    t: "Deploy berhasil! Bonus giliran!",
+    effect: (p, done) => {
       p.bonusTurn = true;
       showMsg("Event: Deploy sukses! Bonus giliran!");
+      setTimeout(done, 1000);
     },
   },
   {
-    t: "📶 WiFi putus! Kehilangan progress.",
-    effect: (p) => {
-      moveBack(p, 4);
+    t: "WiFi putus! Kehilangan progress.",
+    effect: (p, done) => {
+      moveBack(p, 4, done);
       showMsg("Event: WiFi putus! Mundur 4 kotak.");
     },
   },
   {
-    t: "🏆 Memenangkan mini challenge!",
-    effect: (p) => {
+    t: "Memenangkan mini challenge!",
+    effect: (p, done) => {
       p.skillCharge = (p.skillCharge || 0) + 1;
       showMsg("Event: Menang challenge! Skill charge +1!");
+      setTimeout(() => done(), 1000);
     },
   },
 ];
 
-function moveBack(p, n) {
-  p.pos = Math.max(1, p.pos - n);
-  checkLandEffects(p, false);
+function moveBack(p, n, callback) {
+  const targetTile = Math.max(1, p.pos - n);
+  p.direction = DIR.DOWN;
+  animateMoveToTile(p, targetTile, 700, () => {
+    p.pos = targetTile;
+    callback?.();
+  });
 }
 
-function moveForward(p, n) {
-  p.pos = Math.min(100, p.pos + n);
-  checkLandEffects(p, false);
+function moveForward(p, n, callback) {
+  const targetTile = Math.min(100, p.pos + n);
+
+  p.direction = DIR.UP;
+
+  animateMoveToTile(p, targetTile, 700, () => {
+    p.pos = targetTile;
+    callback?.();
+  });
 }
 
 function drawBoard() {
@@ -421,8 +522,8 @@ function drawBoard() {
         ? OLD_GOLD
         : YOUNG_GOLD;
 
-    if (BUG_TILES.has(tile)) bg = "#ff6b6b";
-    else if (UPGRADE_TILES.has(tile)) bg = "#6bffb8";
+    if (SNAKES[tile]) bg = "#ff6b6b";
+    else if (LADDERS[tile]) bg = "#6bffb8";
     else if (CHALLENGE_TILES.has(tile)) bg = "#6bb5ff";
     else if (EVENT_TILES.has(tile)) bg = "#d4a0ff";
     else if (BOOST_TILES.has(tile)) bg = "#ffe06b";
@@ -450,12 +551,19 @@ function drawBoard() {
     ctx.textAlign = "center";
     ctx.fillText(tile, r.x + r.w / 2, r.y + 10);
 
-    if (BUG_TILES.has(tile)) {
-      ctx.font = "10px serif";
-      ctx.fillText("🐛", r.x + r.w / 2, r.y + r.h / 2 + 4);
-    } else if (UPGRADE_TILES.has(tile)) {
-      ctx.font = "10px serif";
-      ctx.fillText("🪜", r.x + r.w / 2, r.y + r.h / 2 + 4);
+    if (SNAKES[tile]) {
+      const bug = SNAKES[tile];
+      const img = ICONS[bug.icon];
+
+      if (img && img.complete && img.naturalWidth) {
+        ctx.drawImage(img, r.x + 16, r.y + 14, 28, 28);
+      }
+    } else if (LADDERS[tile]) {
+      const up = LADDERS[tile];
+      const img = ICONS[up.icon];
+      if (img && img.complete && img.naturalWidth) {
+        ctx.drawImage(img, r.x + 16, r.y + 14, 28, 28);
+      }
     } else if (CHALLENGE_TILES.has(tile)) {
       ctx.font = "10px serif";
       ctx.fillText("❓", r.x + r.w / 2, r.y + r.h / 2 + 4);
@@ -467,64 +575,6 @@ function drawBoard() {
       ctx.fillText("⚡", r.x + r.w / 2, r.y + r.h / 2 + 4);
     }
   }
-
-  ctx.lineCap = "round";
-  Object.entries(SNAKES).forEach(([head, tail]) => {
-    const h = tileToXY(+head),
-      t = tileToXY(+tail);
-    if (!h || !t) return;
-    ctx.beginPath();
-    const mx = (h.x + t.x) / 2 + 20,
-      my = (h.y + t.y) / 2;
-    ctx.moveTo(h.x, h.y);
-    ctx.quadraticCurveTo(mx, my, t.x, t.y);
-    ctx.strokeStyle = "#ff3333";
-    ctx.lineWidth = 4;
-    ctx.setLineDash([]);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(h.x, h.y, 7, 0, Math.PI * 2);
-    ctx.fillStyle = "#cc0000";
-    ctx.fill();
-    ctx.fillStyle = "#ff6666";
-    ctx.fillRect(h.x - 2, h.y - 2, 4, 4);
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, 5, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff3333";
-    ctx.fill();
-  });
-
-  Object.entries(LADDERS).forEach(([bottom, top]) => {
-    const b = tileToXY(+bottom),
-      tp = tileToXY(+top);
-    if (!b || !tp) return;
-    ctx.beginPath();
-    ctx.moveTo(b.x - 6, b.y);
-    ctx.lineTo(tp.x - 6, tp.y);
-    ctx.strokeStyle = "#00cc66";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(b.x + 6, b.y);
-    ctx.lineTo(tp.x + 6, tp.y);
-    ctx.stroke();
-    const steps = 6;
-    for (let i = 0; i <= steps; i++) {
-      const t2 = i / steps;
-      const rx = b.x + (tp.x - b.x) * t2;
-      const ry = b.y + (tp.y - b.y) * t2;
-      ctx.beginPath();
-      ctx.moveTo(rx - 8, ry);
-      ctx.lineTo(rx + 8, ry);
-      ctx.strokeStyle = "#33ff99";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.arc(tp.x, tp.y, 5, 0, Math.PI * 2);
-    ctx.fillStyle = "#00cc66";
-    ctx.fill();
-  });
 }
 
 function drawDice(face) {
@@ -649,7 +699,7 @@ function drawSidebar() {
     }
     if (p.skipTurn) {
       ctx.fillStyle = "#e74c3c";
-      ctx.fillText("💤SKIP", sx + 8, oy + 60 + si * 14);
+      ctx.fillText("SKIP", sx + 8, oy + 60 + si * 14);
       si++;
     }
     if (p.bonusTurn) {
@@ -716,6 +766,7 @@ function render() {
   if (gameState === "start") return;
   drawBoard();
   drawPlayers();
+  drawTooltip();
   drawSidebar();
   drawDiceArea();
   requestAnimationFrame(render);
@@ -738,20 +789,14 @@ function updateTurnLabel() {
 
 function rollDice() {
   if (animating || gameState !== "playing") return;
+
   const btn = document.getElementById("diceBtn");
   btn.disabled = true;
-  const p = players[currentPlayer];
 
-  if (p.skipTurn) {
-    p.skipTurn = false;
-    showMsg("💤 " + CHARS[p.charIdx].name + " skip giliran!");
-    nextTurn();
-    return;
-  }
+  const p = players[currentPlayer];
 
   let roll = p.predictedRoll || Math.ceil(Math.random() * 6);
   p.predictedRoll = null;
-
   rolledDice = 0;
   let frames = 0;
   const shake = setInterval(() => {
@@ -760,7 +805,7 @@ function rollDice() {
     if (frames > 8) {
       clearInterval(shake);
       rolledDice = roll;
-      showMsg(`🎲 ${CHARS[p.charIdx].name} melempar ${roll}!`);
+      showMsg(`${CHARS[p.charIdx].name} melempar ${roll}!`);
       setTimeout(() => movePlayer(currentPlayer, roll), 400);
     }
   }, 80);
@@ -794,16 +839,11 @@ function movePlayer(pidx, steps) {
     }
 
     const nextTile = Math.min(100, p.pos + 1);
-
     updateDirection(p, nextTile);
 
-    const target = tileToXY(nextTile);
-
-    animateWalk(p, target.x, target.y, () => {
+    animateMoveToTile(p, nextTile, 180, () => {
       p.pos = nextTile;
-
       moved++;
-
       updateTurnLabel();
 
       if (p.pos >= 100) {
@@ -818,11 +858,14 @@ function movePlayer(pidx, steps) {
   moveOneTile();
 }
 
-function animateWalk(player, targetX, targetY, onFinish) {
-  const duration = 250;
+function animateMoveToTile(player, targetTile, duration, callback) {
+  const target = tileToXY(targetTile);
 
   const startX = player.drawX;
   const startY = player.drawY;
+
+  const endX = target.x;
+  const endY = target.y;
 
   const startTime = performance.now();
 
@@ -833,19 +876,18 @@ function animateWalk(player, targetX, targetY, onFinish) {
       t = 1;
     }
 
-    player.drawX = startX + (targetX - startX) * t;
-
-    player.drawY = startY + (targetY - startY) * t;
-
+    player.drawX = startX + (endX - startX) * t;
+    player.drawY = startY + (endY - startY) * t;
     player.animFrame = Math.floor((now / 120) % 3);
 
     if (t < 1) {
       requestAnimationFrame(step);
     } else {
-      player.drawX = targetX;
-      player.drawY = targetY;
+      player.drawX = endX;
+      player.drawY = endY;
+      player.animFrame = 0;
 
-      onFinish();
+      callback?.();
     }
   }
 
@@ -862,28 +904,32 @@ function landOnTile(pidx) {
       showMsg("🛡️ CSS Shield melindungi dari Bug! Tile " + tile);
       setTimeout(() => endTurn(pidx), 1000);
     } else {
-      const to = SNAKES[tile];
-      showMsg("🐛 BUG! Ular dari " + tile + " → " + to, 2500);
-      setTimeout(() => {
+      const snake = SNAKES[tile];
+      const to = snake.to;
+      showMsg(`${snake.title}! ` + tile + " → " + to, 2500);
+      p.direction = DIR.DOWN;
+      animateMoveToTile(p, to, 900, () => {
         p.pos = to;
         updateTurnLabel();
-        setTimeout(() => endTurn(pidx), 800);
-      }, 1200);
+        endTurn(pidx);
+      });
     }
   } else if (LADDERS[tile] !== undefined) {
+    const ladder = LADDERS[tile];
     const lb = p.ladderBonus || 0;
-    const to = Math.min(100, LADDERS[tile] + lb);
+    const to = Math.min(100, ladder.to + lb);
     p.ladderBonus = 0;
-    showMsg("🪜 UPGRADE! Tangga dari " + tile + " → " + to + "!", 2500);
-    setTimeout(() => {
+    showMsg(`${ladder.title}! ` + tile + " → " + to + "!", 2500);
+    p.direction = DIR.UP;
+    animateMoveToTile(p, to, 400, () => {
       p.pos = to;
       updateTurnLabel();
       if (p.pos >= 100) {
         winGame(pidx);
         return;
       }
-      setTimeout(() => endTurn(pidx), 800);
-    }, 1200);
+      endTurn(pidx);
+    });
   } else if (CHALLENGE_TILES.has(tile)) {
     showChallenge(pidx);
   } else if (EVENT_TILES.has(tile)) {
@@ -898,6 +944,10 @@ function landOnTile(pidx) {
 }
 
 function showChallenge(pidx) {
+  if (pidx !== 0) {
+    cpuChallenge(pidx);
+    return;
+  }
   gameState = "quiz";
   const p = players[pidx];
   const q = QUIZ_POOL[Math.floor(Math.random() * QUIZ_POOL.length)];
@@ -913,24 +963,62 @@ function showChallenge(pidx) {
       modal.style.display = "none";
       gameState = "playing";
       if (i === q.ans) {
-        showMsg("✅ Benar! Maju 3 kotak!");
-        setTimeout(() => {
-          p.pos = Math.min(100, p.pos + 3);
+        showMsg("Betol! Maju 3 kotak!");
+        const targetTile = Math.min(100, p.pos + 3);
+        p.direction = DIR.UP;
+        animateMoveToTile(p, targetTile, 400, () => {
+          p.pos = targetTile;
           updateTurnLabel();
           endTurn(pidx);
-        }, 800);
+        });
       } else {
-        showMsg("❌ Salah! Mundur 2 kotak.");
+        showMsg("HAHAHA Salah! Mundur 2 kotak.");
         setTimeout(() => {
-          p.pos = Math.max(1, p.pos - 2);
-          updateTurnLabel();
-          endTurn(pidx);
+          const targetTile = Math.min(100, p.pos - 2);
+          p.direction = DIR.DOWN;
+          animateMoveToTile(p, targetTile, 900, () => {
+            p.pos = targetTile;
+            updateTurnLabel();
+            endTurn(pidx);
+          });
         }, 800);
       }
     };
     optsEl.appendChild(btn);
   });
   modal.style.display = "block";
+}
+
+function cpuChallenge(pidx) {
+  const p = players[pidx];
+  const q = QUIZ_POOL[Math.floor(Math.random() * QUIZ_POOL.length)];
+
+  showMsg(CHARS[p.charIdx].name + " sedang menjawab challenge...");
+
+  setTimeout(() => {
+    const successRate = 0.65;
+    const correct = Math.random() < successRate;
+
+    if (correct) {
+      showMsg(CHARS[p.charIdx].name + " menjawab BENAR!");
+      const target = Math.min(100, p.pos + 3);
+      p.direction = DIR.UP;
+      animateMoveToTile(p, target, 400, () => {
+        p.pos = target;
+        updateTurnLabel();
+        endTurn(pidx);
+      });
+    } else {
+      showMsg(CHARS[p.charIdx].name + " menjawab SALAH!");
+      const target = Math.max(1, p.pos - 2);
+      p.direction = DIR.DOWN;
+      animateMoveToTile(p, target, 600, () => {
+        p.pos = target;
+        updateTurnLabel();
+        endTurn(pidx);
+      });
+    }
+  }, 1500);
 }
 
 function showEvent(pidx) {
@@ -942,16 +1030,86 @@ function showEvent(pidx) {
   document.getElementById("evtOkBtn").onclick = () => {
     modal.style.display = "none";
     gameState = "playing";
-    ev.effect(players[pidx]);
-    updateTurnLabel();
-    setTimeout(() => endTurn(pidx), 600);
+
+    const finish = () => {
+      updateTurnLabel();
+      endTurn(pidx);
+    };
+
+    ev.effect(players[pidx], finish);
   };
+}
+
+function showFinalChallenge(pidx) {
+  if (finalChallengeActive) return;
+  finalChallengeActive = true;
+  const p = players[pidx];
+
+  if (pidx !== 0) {
+    showMsg(CHARS[p.charIdx].name + " menghadapi Final Interview...");
+    setTimeout(() => {
+      const success = Math.random() < 0.6;
+
+      if (success) {
+        showMsg("Interview Lulus!");
+        finalChallengeActive = false;
+        setTimeout(() => winGame(pidx), 1000);
+      } else {
+        showMsg("Interview Gagal. Mundur 5 kotak.");
+        p.pos = Math.max(1, p.pos - 5);
+        updateTurnLabel();
+        finalChallengeActive = false;
+        setTimeout(() => endTurn(pidx), 1200);
+      }
+    }, 1500);
+
+    return;
+  }
+
+  const q = FINAL_CHALLENGES[Math.floor(Math.random() * FINAL_CHALLENGES.length)];
+  const modal = document.getElementById("quizModal");
+
+  document.getElementById("quizQ").textContent = "FINAL INTERVIEW\n\n" + q.q;
+  const optsEl = document.getElementById("quizOpts");
+  optsEl.innerHTML = "";
+  q.opts.forEach((opt, i) => {
+    const btn = document.createElement("button");
+    btn.className = "qBtn";
+    btn.textContent = String.fromCharCode(65 + i) + ". " + opt;
+    btn.onclick = () => {
+      modal.style.display = "none";
+
+      if (i === q.ans) {
+        showMsg("Interview Lulus!");
+        finalChallengeActive = false;
+        setTimeout(() => winGame(pidx), 1000);
+      } else {
+        showMsg("Interview Gagal. Mundur 5 kotak.");
+        p.pos = Math.max(1, p.pos - 5);
+        updateTurnLabel();
+        finalChallengeActive = false;
+        setTimeout(() => endTurn(pidx), 1200);
+      }
+    };
+
+    optsEl.appendChild(btn);
+  });
+
+  modal.style.display = "block";
 }
 
 function endTurn(pidx) {
   const p = players[pidx];
+  if (p.pos >= 90 && p.pos < 100) {
+    if (Math.random() < 0.25) {
+      showMsg("🔥 Production Issue! Mundur 2 kotak.");
+      p.pos = Math.max(1, p.pos - 2);
+      updateTurnLabel();
+    }
+  }
   if (p.pos >= 100) {
     winGame(pidx);
+    showFinalChallenge(pidx);
     return;
   }
   if (p.bonusTurn) {
@@ -966,12 +1124,21 @@ function endTurn(pidx) {
 }
 
 function nextTurn() {
+  animating = false;
   currentPlayer = (currentPlayer + 1) % players.length;
   turnCount++;
+
   updateTurnLabel();
-  setTimeout(() => {
-    document.getElementById("diceBtn").disabled = false;
-  }, 400);
+  document.getElementById("diceBtn").disabled = true;
+
+  const p = players[currentPlayer];
+  if (p.skipTurn) {
+    p.skipTurn = false;
+    showMsg(CHARS[p.charIdx].name + " melewati giliran!");
+    setTimeout(nextTurn, 1000);
+    return;
+  }
+  document.getElementById("diceBtn").disabled = false;
 }
 
 function winGame(pidx) {
@@ -1081,7 +1248,7 @@ function startGame() {
         if (currentPlayer === 1 && gameState === "playing") {
           const roll = Math.ceil(Math.random() * 6);
           rolledDice = roll;
-          showMsg(`🤖 CPU ${CHARS[players[1].charIdx].name} melempar ${roll}!`);
+          showMsg(`CPU ${CHARS[players[1].charIdx].name} melempar ${roll}!`);
           setTimeout(() => movePlayer(1, roll), 600);
         }
       }, 1000);
@@ -1089,6 +1256,71 @@ function startGame() {
   }, 500);
 }
 
+C.addEventListener("mousemove", (e) => {
+  const rect = C.getBoundingClientRect();
+
+  mouseX = e.clientX - rect.left;
+  mouseY = e.clientY - rect.top;
+
+  hoverTile = null;
+
+  for (let tile = 1; tile <= 100; tile++) {
+    const r = tileRect(tile);
+    if (
+      mouseX >= r.x &&
+      mouseX <= r.x + r.w &&
+      mouseY >= r.y &&
+      mouseY <= r.y + r.h
+    ) {
+      hoverTile = tile;
+      break;
+    }
+  }
+});
+
+function drawTooltip() {
+  if (!hoverTile) return;
+  let text = null;
+  if (SNAKES[hoverTile]) {
+    const s = SNAKES[hoverTile];
+    text = s.title;
+  } else if (LADDERS[hoverTile]) {
+    const l = LADDERS[hoverTile];
+    text = l.title;
+  } else if (CHALLENGE_TILES.has(hoverTile)) {
+    text = "❓ Challenge Tile";
+  } else if (EVENT_TILES.has(hoverTile)) {
+    text = "🎲 Random Event";
+  } else if (BOOST_TILES.has(hoverTile)) {
+    text = "⚡ Skill Boost";
+  }
+
+  if (!text) return;
+
+  const lines = text.split("\n");
+  const w = 220;
+  const h = 18 + lines.length * 16;
+  let x = mouseX + 15;
+  let y = mouseY - 10;
+
+  if (x + w > C.width) x = C.width - w - 5;
+
+  if (y + h > C.height) y = C.height - h - 5;
+
+  ctx.fillStyle = "rgba(0,0,0,0.85)";
+  ctx.fillRect(x, y, w, h);
+
+  ctx.strokeStyle = "#FFD700";
+  ctx.strokeRect(x, y, w, h);
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "8px 'Press Start 2P'";
+  ctx.textAlign = "left";
+
+  lines.forEach((line, i) => ctx.fillText(line, x + 10, y + 18 + i * 16));
+}
+
+document.getElementById("startBtn").addEventListener("click", startGame);
 document.getElementById("diceBtn").addEventListener("click", rollDice);
 document.getElementById("diceBtn").style.display = "none";
 buildStartScreen();
