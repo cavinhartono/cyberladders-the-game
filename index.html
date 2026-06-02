@@ -75,7 +75,7 @@
         <h1>HACKATHON<br />CLIMB TO MASTERY</h1>
         <p>&blacktriangleright; Pilih Karakter</p>
         <div class="charGrid" id="charGrid"></div>
-        <button id="startBtn" onclick="startGame()">
+        <button id="startBtn">
           <span class="icon">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -98,6 +98,16 @@
         </button>
       </div>
     </div>
-    <script src="./script.js"></script>
+    <script>
+      const disabledKeys = ['F12', 'I', 'J', 'U'];
+      document.addEventListener('contextmenu', e => e.preventDefault());
+      document.addEventListener('keydown', e => {
+        const isDevShortcut = (e.ctrlKey && e.shiftKey && disabledKeys.includes(e.key.toUpperCase())) || 
+                              (e.ctrlKey && e.key.toUpperCase() === 'U') || 
+                              e.key === 'F12';
+        if (isDevShortcut) e.preventDefault();
+      });
+    </script>
+    <script src="./dist/script.min.js"></script>
   </body>
 </html>
