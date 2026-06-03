@@ -16,6 +16,35 @@ const OLD_GOLD = "#cfb53b",
   YOUNG_GOLD = "#f5d76e",
   PIXEL_SZ = 4;
 
+const SFX = {
+  click: new Audio("public/assets/audio/click.wav"),
+  dice: new Audio("public/assets/audio/dice.wav"),
+  step: new Audio("public/assets/audio/step.wav"),
+  ladder: new Audio("public/assets/audio/upgrade.wav"),
+  snake: new Audio("public/assets/audio/bug.wav"),
+  win: new Audio("public/assets/audio/win.wav"),
+};
+
+SFX.click.volume = 0.3;
+SFX.step.volume = 0.15;
+SFX.dice.volume = 0.4;
+
+function playSfx(sound) {
+  if (!sound) return;
+  sound.currentTime = 0;
+  sound.play().catch(() => {});
+}
+
+let lastStepSound = 0;
+function playStep() {
+  const now = performance.now();
+  
+  if(now - lastStepSound < 80) return;
+
+  lastStepSound = now;
+  playSfx(SFX.step);
+}
+
 function makeCanvas(w, h) {
   const c = document.createElement("canvas");
   c.width = w;
@@ -456,6 +485,7 @@ const EVENT_POOL = [
     t: "Laptop freeze! Skip satu giliran.",
     effect: (p, done) => {
       p.skipTurn = true;
+      playSfx(SFX.snake);
       showMsg("Event: Laptop freeze! Skip 1 giliran.");
       setTimeout(() => done(), 1000);
     },
@@ -464,6 +494,7 @@ const EVENT_POOL = [
     t: "Deploy berhasil! Bonus giliran!",
     effect: (p, done) => {
       p.bonusTurn = true;
+      playSfx(SFX.win);
       showMsg("Event: Deploy sukses! Bonus giliran!");
       setTimeout(done, 1000);
     },
@@ -479,6 +510,7 @@ const EVENT_POOL = [
     t: "Memenangkan mini challenge!",
     effect: (p, done) => {
       p.skillCharge = (p.skillCharge || 0) + 1;
+      playSfx(SFX.win);
       showMsg("Event: Menang challenge! Skill charge +1!");
       setTimeout(() => done(), 1000);
     },
@@ -490,17 +522,17 @@ function moveBack(p, n, callback) {
   p.direction = DIR.DOWN;
   animateMoveToTile(p, targetTile, 700, () => {
     p.pos = targetTile;
+    playSfx(SFX.snake);
     callback?.();
   });
 }
 
 function moveForward(p, n, callback) {
   const targetTile = Math.min(100, p.pos + n);
-
   p.direction = DIR.UP;
-
   animateMoveToTile(p, targetTile, 700, () => {
     p.pos = targetTile;
+    playSfx(SFX.ladder);
     callback?.();
   });
 }
@@ -792,6 +824,7 @@ function rollDice() {
 
   const btn = document.getElementById("diceBtn");
   btn.disabled = true;
+  playSfx(SFX.dice);
 
   const p = players[currentPlayer];
 
@@ -843,6 +876,7 @@ function movePlayer(pidx, steps) {
 
     animateMoveToTile(p, nextTile, 180, () => {
       p.pos = nextTile;
+      playStep();
       moved++;
       updateTurnLabel();
 
@@ -899,6 +933,7 @@ function landOnTile(pidx) {
   const tile = p.pos;
 
   if (SNAKES[tile] !== undefined) {
+    playSfx(SFX.snake);
     if (p.snakeShield) {
       p.snakeShield = false;
       showMsg("🛡️ CSS Shield melindungi dari Bug! Tile " + tile);
@@ -915,6 +950,7 @@ function landOnTile(pidx) {
       });
     }
   } else if (LADDERS[tile] !== undefined) {
+    playSfx(SFX.ladder);
     const ladder = LADDERS[tile];
     const lb = p.ladderBonus || 0;
     const to = Math.min(100, ladder.to + lb);
@@ -962,12 +998,14 @@ function showChallenge(pidx) {
     btn.onclick = () => {
       modal.style.display = "none";
       gameState = "playing";
+      playSfx(SFX.click);
       if (i === q.ans) {
         showMsg("Betol! Maju 3 kotak!");
         const targetTile = Math.min(100, p.pos + 3);
         p.direction = DIR.UP;
         animateMoveToTile(p, targetTile, 400, () => {
           p.pos = targetTile;
+          playSfx(SFX.win);
           updateTurnLabel();
           endTurn(pidx);
         });
@@ -978,6 +1016,7 @@ function showChallenge(pidx) {
           p.direction = DIR.DOWN;
           animateMoveToTile(p, targetTile, 900, () => {
             p.pos = targetTile;
+            playSfx(SFX.snake);
             updateTurnLabel();
             endTurn(pidx);
           });
@@ -1005,6 +1044,7 @@ function cpuChallenge(pidx) {
       p.direction = DIR.UP;
       animateMoveToTile(p, target, 400, () => {
         p.pos = target;
+        playSfx(SFX.win);
         updateTurnLabel();
         endTurn(pidx);
       });
@@ -1014,6 +1054,7 @@ function cpuChallenge(pidx) {
       p.direction = DIR.DOWN;
       animateMoveToTile(p, target, 600, () => {
         p.pos = target;
+        playSfx(SFX.snake);
         updateTurnLabel();
         endTurn(pidx);
       });
@@ -1077,6 +1118,7 @@ function showFinalChallenge(pidx) {
     btn.className = "qBtn";
     btn.textContent = String.fromCharCode(65 + i) + ". " + opt;
     btn.onclick = () => {
+      playSfx(SFX.click);
       modal.style.display = "none";
 
       if (i === q.ans) {
@@ -1142,6 +1184,7 @@ function nextTurn() {
 }
 
 function winGame(pidx) {
+  playSfx(SFX.win);
   gameState = "win";
   const p = players[pidx];
   document.getElementById("winScreen").style.display = "flex";
@@ -1184,6 +1227,7 @@ function buildStartScreen() {
 }
 
 function startGame() {
+  playSfx(SFX.click);
   if (selectedChar < 0) return;
   document.getElementById("startScreen").style.display = "none";
   gameState = "playing";
@@ -1322,6 +1366,21 @@ function drawTooltip() {
 
 document.getElementById("startBtn").addEventListener("click", startGame);
 document.getElementById("diceBtn").addEventListener("click", rollDice);
+
+const isInputField = (el) => ["INPUT", "TEXTAREA"].includes(el.tagName);
+const canRollDice = () => {
+  const diceBtn = document.getElementById("diceBtn");
+  return gameState === "playing" && !animating && !diceBtn?.disabled;
+};
+
+document.addEventListener("keydown", (e) => {
+  if (e.code !== "Space" || isInputField(document.activeElement)) return;
+  e.preventDefault();
+  if (canRollDice()) {
+    playSfx(SFX.click);
+    rollDice();
+  }
+});
 document.getElementById("diceBtn").style.display = "none";
 buildStartScreen();
 
