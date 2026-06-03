@@ -210,6 +210,9 @@ const CHARS = [
 
 const diceSheet = makeDiceSheet();
 const charSheets = CHARS.map((ch) => makeCharSheet(ch.pal));
+let finalQuestions = [];
+let finalQuestionIndex = 0;
+let finalCorrect = 0;
 let finalChallengeActive = false;
 const playerSprites = [];
 const SPRITE_W = 16;
@@ -320,6 +323,166 @@ const CHALLENGE_TILES = new Set([
 const EVENT_TILES = new Set([11, 23, 35, 46, 58, 70, 73, 80, 82, 93, 97]);
 const BOOST_TILES = new Set([13, 26, 42, 55, 66, 77]);
 const FINAL_CHALLENGES = [
+  {
+    q: "Apa tujuan utama penggunaan Git Branch?",
+    opts: [
+      "Menyimpan database",
+      "Mengembangkan fitur secara terpisah",
+      "Menghapus commit lama",
+      "Mengganti repository"
+    ],
+    ans: 1,
+  },
+  {
+    q: "Apa fungsi PRIMARY KEY pada tabel database?",
+    opts: [
+      "Menghubungkan server",
+      "Mengurutkan data otomatis",
+      "Mengidentifikasi setiap record secara unik",
+      "Menyimpan file"
+    ],
+    ans: 2,
+  },
+  {
+    q: "Metode HTTP yang umum digunakan untuk memperbarui data adalah?",
+    opts: ["GET", "POST", "PUT", "TRACE"],
+    ans: 2,
+  },
+  {
+    q: "Algoritma pencarian dengan kompleksitas rata-rata O(log n) adalah?",
+    opts: [
+      "Linear Search",
+      "Binary Search",
+      "Bubble Sort",
+      "Sequential Search"
+    ],
+    ans: 1,
+  },
+  {
+    q: "Pada OOP, konsep pewarisan disebut?",
+    opts: [
+      "Encapsulation",
+      "Abstraction",
+      "Inheritance",
+      "Polymorphism"
+    ],
+    ans: 2,
+  },
+  {
+    q: "Port default yang digunakan HTTPS adalah?",
+    opts: ["21", "80", "443", "3306"],
+    ans: 2,
+  },
+  {
+    q: "Apa fungsi Docker Container?",
+    opts: [
+      "Mengelola database",
+      "Virtualisasi tingkat aplikasi",
+      "Mengganti sistem operasi",
+      "Menghapus dependency"
+    ],
+    ans: 1,
+  },
+  {
+    q: "Apa yang dimaksud dengan overfitting dalam Machine Learning?",
+    opts: [
+      "Model terlalu sederhana",
+      "Model gagal belajar",
+      "Model terlalu mengikuti data training",
+      "Data terlalu sedikit"
+    ],
+    ans: 2,
+  },
+  {
+    q: "Struktur data yang bekerja dengan prinsip FIFO adalah?",
+    opts: [
+      "Stack",
+      "Queue",
+      "Tree",
+      "Graph"
+    ],
+    ans: 1,
+  },
+  {
+    q: "Apa fungsi indeks (INDEX) pada database?",
+    opts: [
+      "Memperkecil ukuran tabel",
+      "Mempercepat pencarian data",
+      "Menghapus duplikasi",
+      "Mengubah tipe data"
+    ],
+    ans: 1,
+  },
+  {
+    q: "Status code HTTP 500 menunjukkan?",
+    opts: [
+      "Client Error",
+      "Redirect",
+      "Success",
+      "Internal Server Error"
+    ],
+    ans: 3,
+  },
+  {
+    q: "Pada Cloud Computing, SaaS merupakan singkatan dari?",
+    opts: [
+      "Software as a Service",
+      "Storage as a Service",
+      "System as a Service",
+      "Server as a Service"
+    ],
+    ans: 0,
+  },
+  {
+    q: "Apa fungsi keyword 'this' dalam JavaScript?",
+    opts: [
+      "Mengakses objek saat ini",
+      "Menghapus variabel",
+      "Membuat array",
+      "Membuat loop"
+    ],
+    ans: 0,
+  },
+  {
+    q: "Algoritma sorting yang memiliki kompleksitas rata-rata O(n log n) adalah?",
+    opts: [
+      "Bubble Sort",
+      "Insertion Sort",
+      "Merge Sort",
+      "Selection Sort"
+    ],
+    ans: 2,
+  },
+  {
+    q: "Apa tujuan penggunaan JWT (JSON Web Token)?",
+    opts: [
+      "Kompresi file",
+      "Autentikasi dan otorisasi",
+      "Penyimpanan database",
+      "Enkripsi gambar"
+    ],
+    ans: 1,
+  },
+  {
+    q: "Dalam rekayasa perangkat lunak, UML digunakan untuk?",
+    opts: [
+      "Mengelola server",
+      "Merancang dan memodelkan sistem",
+      "Menguji jaringan",
+      "Menyimpan source code"
+    ],
+    ans: 1,
+  },
+  {
+    q: "Apa fungsi FOREIGN KEY pada database?",
+    opts: [
+      "Menentukan password tabel",
+      "Menghubungkan relasi antar tabel",
+      "Menghapus data otomatis",
+      "Mengurutkan data"
+    ],
+    ans: 1,
+  },
   {
     q: "Apa fungsi Git dalam pengembangan software?",
     opts: ["Version Control", "Database", "Compiler", "Framework"],
@@ -447,6 +610,26 @@ const QUIZ_POOL = [
       "Uniform Resource Locator",
       "Unique Resource Link",
       "None",
+    ],
+    ans: 1,
+  },
+  {
+    q: "Normalisasi database bertujuan untuk?",
+    opts: [
+      "Menambah ukuran data",
+      "Mengurangi redundansi data",
+      "Mempercepat internet",
+      "Meningkatkan RAM server"
+    ],
+    ans: 1,
+  },
+  {
+    q: "Apa kepanjangan dari REST pada REST API?",
+    opts: [
+      "Remote Service Transfer",
+      "Representational State Transfer",
+      "Resource State Transaction",
+      "Relational Service Transfer"
     ],
     ans: 1,
   },
@@ -597,13 +780,13 @@ function drawBoard() {
         ctx.drawImage(img, r.x + 16, r.y + 14, 28, 28);
       }
     } else if (CHALLENGE_TILES.has(tile)) {
-      ctx.font = "10px serif";
-      ctx.fillText("❓", r.x + r.w / 2, r.y + r.h / 2 + 4);
+      ctx.font = "12px serif";
+      ctx.fillText("?", r.x + r.w / 2, r.y + r.h / 2 + 4);
     } else if (EVENT_TILES.has(tile)) {
-      ctx.font = "10px serif";
-      ctx.fillText("🎲", r.x + r.w / 2, r.y + r.h / 2 + 4);
+      ctx.font = "12px serif";
+      ctx.fillText("⇅", r.x + r.w / 2, r.y + r.h / 2 + 4);
     } else if (BOOST_TILES.has(tile)) {
-      ctx.font = "10px serif";
+      ctx.font = "12px serif";
       ctx.fillText("⚡", r.x + r.w / 2, r.y + r.h / 2 + 4);
     }
   }
@@ -863,10 +1046,36 @@ function movePlayer(pidx, steps) {
   animating = true;
   let moved = 0;
 
+  const startPos = p.pos;
+  const rawTarget = startPos + steps;
+  let finalTarget;
+  let bounceMode = false;
+
+  if (rawTarget > 100) {
+    const excess = rawTarget - 100;
+    finalTarget = 100 - excess;
+    bounceMode = true;
+  } else finalTarget = rawTarget;
+
   function moveOneTile() {
     if (moved >= steps) {
       animating = false;
       p.animFrame = 0;
+      
+      if (bounceMode) {
+        showMsg("Deploy gagal sempurna! Memantul ke " + finalTarget); 
+
+        const target = finalTarget; 
+        p.direction = DIR.DOWN;
+
+        animateMoveToTile(p, target, 1000, () => {
+          p.pos = target;
+          updateTurnLabel();
+          landOnTile(pidx);
+        });
+        return;
+      }
+
       landOnTile(pidx);
       return;
     }
@@ -880,8 +1089,9 @@ function movePlayer(pidx, steps) {
       moved++;
       updateTurnLabel();
 
-      if (p.pos >= 100) {
-        winGame(pidx);
+      if (p.pos === 100 && !bounceMode) {
+        animating = false;
+        showFinalChallenge(pidx);
         return;
       }
 
@@ -961,7 +1171,9 @@ function landOnTile(pidx) {
       p.pos = to;
       updateTurnLabel();
       if (p.pos >= 100) {
-        winGame(pidx);
+        p.pos = 100;
+        updateTurnLabel();
+        showFinalChallenge(pidx);
         return;
       }
       endTurn(pidx);
@@ -1084,60 +1296,129 @@ function showEvent(pidx) {
 function showFinalChallenge(pidx) {
   if (finalChallengeActive) return;
   finalChallengeActive = true;
+  
   const p = players[pidx];
-
+  
   if (pidx !== 0) {
     showMsg(CHARS[p.charIdx].name + " menghadapi Final Interview...");
     setTimeout(() => {
-      const success = Math.random() < 0.6;
-
-      if (success) {
-        showMsg("Interview Lulus!");
+      let correct = 0;
+      for (let i = 0; i < 5; i++) if (Math.random() < 0.5) correct++;
+      if (correct >= 3) {
+        showMsg(`${CHARS[p.charIdx].name} lulus interview (${correct}/5)!`);
         finalChallengeActive = false;
-        setTimeout(() => winGame(pidx), 1000);
+        setTimeout(() => winGame(pidx), 1200);
       } else {
-        showMsg("Interview Gagal. Mundur 5 kotak.");
-        p.pos = Math.max(1, p.pos - 5);
-        updateTurnLabel();
-        finalChallengeActive = false;
-        setTimeout(() => endTurn(pidx), 1200);
+        showMsg(`${CHARS[p.charIdx].name} gagal interview (${correct}/5)!`);
+        const targetTile = Math.max(1, p.pos - 5);
+        updateDirection(p, targetTile);
+        animateMoveToTile(p, targetTile, 900, () => {
+          p.pos = targetTile;
+          updateTurnLabel();
+          finalChallengeActive = false;
+          endTurn(pidx);
+        });
       }
     }, 1500);
 
     return;
   }
+  
+  finalQuestions = [...FINAL_CHALLENGES].sort(() => Math.random() - 0.5).slice(0, 5);
+  finalQuestionIndex = 0;
+  finalCorrect = 0;
+  showNextFinalQuestion(pidx);
+}
 
-  const q = FINAL_CHALLENGES[Math.floor(Math.random() * FINAL_CHALLENGES.length)];
+function showNextFinalQuestion(pidx) {
+  const q = finalQuestions[finalQuestionIndex];
+
   const modal = document.getElementById("quizModal");
-
-  document.getElementById("quizQ").textContent = "FINAL INTERVIEW\n\n" + q.q;
+  document.getElementById("quizQ").textContent = `FINAL INTERVIEW (${finalQuestionIndex + 1}/5)\n\n` + q.q;
   const optsEl = document.getElementById("quizOpts");
   optsEl.innerHTML = "";
+
   q.opts.forEach((opt, i) => {
     const btn = document.createElement("button");
     btn.className = "qBtn";
     btn.textContent = String.fromCharCode(65 + i) + ". " + opt;
     btn.onclick = () => {
       playSfx(SFX.click);
-      modal.style.display = "none";
-
-      if (i === q.ans) {
-        showMsg("Interview Lulus!");
-        finalChallengeActive = false;
-        setTimeout(() => winGame(pidx), 1000);
-      } else {
-        showMsg("Interview Gagal. Mundur 5 kotak.");
-        p.pos = Math.max(1, p.pos - 5);
-        updateTurnLabel();
-        finalChallengeActive = false;
-        setTimeout(() => endTurn(pidx), 1200);
+      if(i === q.ans) finalCorrect++;
+      finalQuestionIndex++;
+      if(finalQuestionIndex >= 5) {
+        modal.style.display = "none";
+        finishFinalChallenge(pidx);
+        return;
       }
+      showNextFinalQuestion(pidx);
     };
-
     optsEl.appendChild(btn);
   });
 
   modal.style.display = "block";
+}
+
+function finishFinalChallenge(pidx) {
+  const p = players[pidx];
+  finalChallengeActive = false;
+
+  if(finalCorrect >= 3) {
+    showMsg(`Lulus Interview (${finalCorrect}/5)`);
+    setTimeout(() => winGame(pidx), 1200);
+    return;
+  }
+
+  showMsg(`Interview Gagal (${finalCorrect}/5)\nMundur 5 kotak`);
+
+  const targetTile = Math.max(1, p.pos - 5);
+  p.direction = DIR.RIGHT;
+
+  animateMoveToTile(p, targetTile, 900, () => {
+    p.pos = targetTile;
+    updateTurnLabel();
+    endTurn(pidx);
+  });
+}
+
+function applyEndGame(pidx) {
+  const p = players[pidx];
+  
+  if (p.pos < 96 || p.pos >= 100) return false;
+  const chance = Math.random();
+  if (chance > 0.30) return false;
+
+  const hazards = [
+    {
+      msg: "Production Bug!",
+      move: -3
+    },
+    {
+      msg: "System Crash!",
+      move: -5
+    },
+    {
+      msg: "Code Review Rejected!",
+      move: -2
+    },
+    {
+      msg: "Rollback Release!",
+      move: -4
+    }
+  ];
+
+  const h = hazards[Math.floor(Math.random() * hazards.length)];
+  showMsg(h.msg);
+
+  const targetTile = Math.max(1, p.pos + h.move);
+  p.direction = DIR.DOWN;
+  animateMoveToTile(p, targetTile, 900, () => {
+    p.pos = targetTile;
+    updateTurnLabel();
+    landOnTile(pidx);
+  });
+
+  return true;
 }
 
 function endTurn(pidx) {
@@ -1150,7 +1431,8 @@ function endTurn(pidx) {
     }
   }
   if (p.pos >= 100) {
-    winGame(pidx);
+    p.pos = 100;
+    updateTurnLabel();
     showFinalChallenge(pidx);
     return;
   }
@@ -1332,9 +1614,9 @@ function drawTooltip() {
     const l = LADDERS[hoverTile];
     text = l.title;
   } else if (CHALLENGE_TILES.has(hoverTile)) {
-    text = "❓ Challenge Tile";
+    text = "? Challenge Tile";
   } else if (EVENT_TILES.has(hoverTile)) {
-    text = "🎲 Random Event";
+    text = "⇅ Random Event";
   } else if (BOOST_TILES.has(hoverTile)) {
     text = "⚡ Skill Boost";
   }
